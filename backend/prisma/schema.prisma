@@ -1,0 +1,572 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+///////////////////////////////////////////////////////////////
+// USER DOMAIN
+///////////////////////////////////////////////////////////////
+
+enum UserRole {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+enum UserStatus {
+  ACTIVE
+  BANNED
+  SUSPENDED
+}
+
+model User {
+  id String @id @default(uuid())
+
+  username String @unique
+  email    String @unique
+
+  passwordHash String? @map("password_hash")
+
+  // OAuth fields
+  provider String? // e.g., 'google', 'facebook', ...
+  providerId String? @map("provider_id") // e.g., Google user id
+
+  fullName String @map("full_name")
+
+  avatarUrl String? @map("avatar_url")
+
+  phoneNumber String? @map("phone_number")
+
+  role UserRole @default(USER)
+
+  status UserStatus @default(ACTIVE)
+
+  isVerified Boolean @default(false) @map("is_verified")
+
+  lastLoginAt DateTime? @map("last_login_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  deletedAt DateTime? @map("deleted_at")
+
+  /////////////////////////////////////////////////////////////
+  // RELATIONS
+  /////////////////////////////////////////////////////////////
+
+  products Product[]
+
+  bids Bid[]
+
+  watchlists Watchlist[]
+
+  notifications Notification[]
+
+  payments Payment[]
+
+  wonAuctions Auction[] @relation("AuctionWinner")
+
+  reviewsWritten Review[] @relation("Reviewer")
+
+  reviewsReceived Review[] @relation("SellerReviews")
+
+  sentMessages Chat[] @relation("MessageSender")
+
+  receivedMessages Chat[] @relation("MessageReceiver")
+
+  @@map("users")
+}
+
+///////////////////////////////////////////////////////////////
+// CATEGORY DOMAIN
+///////////////////////////////////////////////////////////////
+
+model Category {
+  id String @id @default(uuid())
+
+  name String
+
+  slug String @unique
+
+  /////////////////////////////////////////////////////////////
+  // CATEGORY TREE
+  /////////////////////////////////////////////////////////////
+
+  parentId String? @map("parent_id")
+
+  parent Category? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+
+  children Category[] @relation("CategoryHierarchy")
+
+  /////////////////////////////////////////////////////////////
+  // TIMESTAMPS
+  /////////////////////////////////////////////////////////////
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  /////////////////////////////////////////////////////////////
+  // RELATIONS
+  /////////////////////////////////////////////////////////////
+
+  products Product[]
+
+  @@map("categories")
+}
+
+///////////////////////////////////////////////////////////////
+// PRODUCT DOMAIN
+///////////////////////////////////////////////////////////////
+
+enum ProductCondition {
+  NEW
+  USED
+  REFURBISHED
+}
+
+model Product {
+  id String @id @default(uuid())
+
+  /////////////////////////////////////////////////////////////
+  // RELATIONS
+  /////////////////////////////////////////////////////////////
+
+  sellerId String @map("seller_id")
+
+  seller User @relation(fields: [sellerId], references: [id])
+
+  categoryId String @map("category_id")
+
+  category Category @relation(fields: [categoryId], references: [id])
+
+  /////////////////////////////////////////////////////////////
+  // PRODUCT INFO
+  /////////////////////////////////////////////////////////////
+
+  title String
+
+  slug String @unique
+
+  description String
+
+  condition ProductCondition
+
+  brand String?
+
+  thumbnailUrl String? @map("thumbnail_url")
+
+  location String?
+
+  /////////////////////////////////////////////////////////////
+  // SOFT DELETE
+  /////////////////////////////////////////////////////////////
+
+  isDeleted Boolean @default(false) @map("is_deleted")
+
+  deletedAt DateTime? @map("deleted_at")
+
+  /////////////////////////////////////////////////////////////
+  // TIMESTAMPS
+  /////////////////////////////////////////////////////////////
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  /////////////////////////////////////////////////////////////
+  // RELATIONS
+  /////////////////////////////////////////////////////////////
+
+  images ProductImage[]
+
+  auction Auction?
+
+  /////////////////////////////////////////////////////////////
+  // INDEXES
+  /////////////////////////////////////////////////////////////
+
+  @@index([sellerId])
+  @@index([categoryId])
+  @@index([title])
+  @@map("products")
+}
+
+model ProductImage {
+  id String @id @default(uuid())
+
+  /////////////////////////////////////////////////////////////
+  // RELATIONS
+  /////////////////////////////////////////////////////////////
+
+  productId String @map("product_id")
+
+  product Product @relation(fields: [productId], references: [id])
+
+  /////////////////////////////////////////////////////////////
+  // IMAGE INFO
+  /////////////////////////////////////////////////////////////
+
+  imageUrl String @map("image_url")
+
+  sortOrder Int @default(0) @map("sort_order")
+
+  /////////////////////////////////////////////////////////////
+  // TIMESTAMPS
+  /////////////////////////////////////////////////////////////
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("product_images")
+}
+
+///////////////////////////////////////////////////////////////
+// AUCTION DOMAIN
+///////////////////////////////////////////////////////////////
+
+enum AuctionStatus {
+  PENDING
+  LIVE
+  ENDED
+  CANCELLED
+  SOLD
+}
+
+model Auction {
+  id String @id @default(uuid())
+
+  /////////////////////////////////////////////////////////////
+  // RELATIONS
+  /////////////////////////////////////////////////////////////
+
+  productId String @unique @map("product_id")
+
+  product Product @relation(fields: [productId], references: [id])
+
+  winnerId String? @map("winner_id")
+
+  winner User? @relation("AuctionWinner", fields: [winnerId], references: [id])
+
+  /////////////////////////////////////////////////////////////
+  // AUCTION INFO
+  /////////////////////////////////////////////////////////////
+
+  startPrice Decimal @map("start_price") @db.Decimal(15, 2)
+
+  reservePrice Decimal? @map("reserve_price") @db.Decimal(15, 2)
+
+  currentPrice Decimal @map("current_price") @db.Decimal(15, 2)
+
+  buyNowPrice Decimal? @map("buy_now_price") @db.Decimal(15, 2)
+
+  bidIncrement Decimal @map("bid_increment") @db.Decimal(15, 2)
+
+  totalBids Int @default(0) @map("total_bids")
+
+  /////////////////////////////////////////////////////////////
+  // TIME
+  /////////////////////////////////////////////////////////////
+
+  startTime DateTime @map("start_time")
+
+  endTime DateTime @map("end_time")
+
+  endedAt DateTime? @map("ended_at")
+
+  /////////////////////////////////////////////////////////////
+  // STATUS
+  /////////////////////////////////////////////////////////////
+
+  status AuctionStatus @default(PENDING)
+
+  cancelReason String? @map("cancel_reason")
+
+  /////////////////////////////////////////////////////////////
+  // TIMESTAMPS
+  /////////////////////////////////////////////////////////////
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  /////////////////////////////////////////////////////////////
+  // RELATIONS
+  /////////////////////////////////////////////////////////////
+
+  bids Bid[]
+
+  watchlists Watchlist[]
+
+  payments Payment[]
+
+  reviews Review[]
+
+  chats Chat[]
+
+  /////////////////////////////////////////////////////////////
+  // INDEXES
+  /////////////////////////////////////////////////////////////
+
+  @@index([status])
+  @@index([endTime])
+  @@index([currentPrice])
+  @@map("auctions")
+}
+
+///////////////////////////////////////////////////////////////
+// BID DOMAIN
+///////////////////////////////////////////////////////////////
+
+model Bid {
+  id String @id @default(uuid())
+
+  /////////////////////////////////////////////////////////////
+  // RELATIONS
+  /////////////////////////////////////////////////////////////
+
+  auctionId String @map("auction_id")
+
+  auction Auction @relation(fields: [auctionId], references: [id])
+
+  bidderId String @map("bidder_id")
+
+  bidder User @relation(fields: [bidderId], references: [id])
+
+  /////////////////////////////////////////////////////////////
+  // BID INFO
+  /////////////////////////////////////////////////////////////
+
+  bidAmount Decimal @map("bid_amount") @db.Decimal(15, 2)
+
+  isAutoBid Boolean @default(false) @map("is_auto_bid")
+
+  /////////////////////////////////////////////////////////////
+  // SECURITY
+  /////////////////////////////////////////////////////////////
+
+  ipAddress String? @map("ip_address")
+
+  userAgent String? @map("user_agent")
+
+  /////////////////////////////////////////////////////////////
+  // TIMESTAMPS
+  /////////////////////////////////////////////////////////////
+
+  bidTime DateTime @default(now()) @map("bid_time")
+
+  /////////////////////////////////////////////////////////////
+  // INDEXES
+  /////////////////////////////////////////////////////////////
+
+  @@index([auctionId])
+  @@index([bidderId])
+  @@index([bidTime])
+  @@index([auctionId, bidAmount])
+  @@map("bids")
+}
+
+///////////////////////////////////////////////////////////////
+// WATCHLIST DOMAIN
+///////////////////////////////////////////////////////////////
+
+model Watchlist {
+  id String @id @default(uuid())
+
+  userId String @map("user_id")
+
+  user User @relation(fields: [userId], references: [id])
+
+  auctionId String @map("auction_id")
+
+  auction Auction @relation(fields: [auctionId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, auctionId])
+  @@map("watchlists")
+}
+
+///////////////////////////////////////////////////////////////
+// NOTIFICATION DOMAIN
+///////////////////////////////////////////////////////////////
+
+enum NotificationType {
+  OUTBID
+  WIN
+  SYSTEM
+  PAYMENT
+}
+
+model Notification {
+  id String @id @default(uuid())
+
+  userId String @map("user_id")
+
+  user User @relation(fields: [userId], references: [id])
+
+  title String
+
+  message String
+
+  type NotificationType
+
+  link String?
+
+  isRead Boolean @default(false) @map("is_read")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("notifications")
+}
+
+///////////////////////////////////////////////////////////////
+// PAYMENT DOMAIN
+///////////////////////////////////////////////////////////////
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model Payment {
+  id String @id @default(uuid())
+
+  /////////////////////////////////////////////////////////////
+  // RELATIONS
+  /////////////////////////////////////////////////////////////
+
+  auctionId String @map("auction_id")
+
+  auction Auction @relation(fields: [auctionId], references: [id])
+
+  payerId String @map("payer_id")
+
+  payer User @relation(fields: [payerId], references: [id])
+
+  /////////////////////////////////////////////////////////////
+  // PAYMENT INFO
+  /////////////////////////////////////////////////////////////
+
+  amount Decimal @db.Decimal(15, 2)
+
+  paymentMethod String? @map("payment_method")
+
+  paymentStatus PaymentStatus @default(PENDING) @map("payment_status")
+
+  transactionId String? @map("transaction_id")
+
+  paidAt DateTime? @map("paid_at")
+
+  /////////////////////////////////////////////////////////////
+  // TIMESTAMPS
+  /////////////////////////////////////////////////////////////
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("payments")
+}
+
+///////////////////////////////////////////////////////////////
+// REVIEW DOMAIN
+///////////////////////////////////////////////////////////////
+
+model Review {
+  id String @id @default(uuid())
+
+  /////////////////////////////////////////////////////////////
+  // RELATIONS
+  /////////////////////////////////////////////////////////////
+
+  reviewerId String @map("reviewer_id")
+
+  reviewer User @relation("Reviewer", fields: [reviewerId], references: [id])
+
+  sellerId String @map("seller_id")
+
+  seller User @relation("SellerReviews", fields: [sellerId], references: [id])
+
+  auctionId String @map("auction_id")
+
+  auction Auction @relation(fields: [auctionId], references: [id])
+
+  /////////////////////////////////////////////////////////////
+  // REVIEW INFO
+  /////////////////////////////////////////////////////////////
+
+  rating Int
+
+  comment String?
+
+  /////////////////////////////////////////////////////////////
+  // TIMESTAMPS
+  /////////////////////////////////////////////////////////////
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  /////////////////////////////////////////////////////////////
+  // INDEXES
+  /////////////////////////////////////////////////////////////
+
+  @@index([reviewerId])
+  @@index([sellerId])
+  @@map("reviews")
+}
+
+///////////////////////////////////////////////////////////////
+// CHAT DOMAIN
+///////////////////////////////////////////////////////////////
+
+model Chat {
+  id String @id @default(uuid())
+
+  /////////////////////////////////////////////////////////////
+  // RELATIONS
+  /////////////////////////////////////////////////////////////
+
+  senderId String @map("sender_id")
+
+  sender User @relation("MessageSender", fields: [senderId], references: [id])
+
+  receiverId String @map("receiver_id")
+
+  receiver User @relation("MessageReceiver", fields: [receiverId], references: [id])
+
+  auctionId String? @map("auction_id")
+
+  auction Auction? @relation(fields: [auctionId], references: [id])
+
+  /////////////////////////////////////////////////////////////
+  // MESSAGE INFO
+  /////////////////////////////////////////////////////////////
+
+  message String
+
+  isRead Boolean @default(false) @map("is_read")
+
+  /////////////////////////////////////////////////////////////
+  // TIMESTAMPS
+  /////////////////////////////////////////////////////////////
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  /////////////////////////////////////////////////////////////
+  // INDEXES
+  /////////////////////////////////////////////////////////////
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([auctionId])
+  @@index([createdAt])
+  @@map("chats")
+}
