@@ -1,11 +1,21 @@
 # AGENTS.md – GRALVO
 
-## 1. General Rules
+
 - The entire project must use English (code, comments, UI, documentation)
 - Write clean, minimal, production-ready code
 - No unnecessary code or duplication
 - Keep consistency across the entire project
 - Prefer maintainability over complexity
+
+**Font Guideline:**
+  - Always use the same font-family as your portfolio (https://haunguyen-portfolio.vercel.app/) for all code, UI, and documentation.
+  - The primary font is `Space Grotesk`, with fallback: `Space Grotesk, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif`.
+  - Always import Space Grotesk from Google Fonts in your global CSS or layout (see portfolio for reference).
+
+**Primary Colors Guideline:**
+  - The main color palette for the project is blue (#1976d2, #2196f3) and orange (#ff9800).
+  - All UI, branding, and highlight elements should use these colors as the primary theme for consistency.
+  - Ensure accessibility and gentle contrast for both light and dark modes.
 
 ---
 
@@ -72,12 +82,12 @@ my-nextjs-app/
 ├── public/                  # Static assets (images, fonts, favicons)
 ├── src/
 │   ├── app/                 # 🌐 LAYER 1: ROUTING & PAGES (Next.js App Router)
-│   │   ├── (auth)/          # Route Group for authentication (URL ignores this folder name)
+│   │   ├── auth/          # Route Group for authentication (URL ignores this folder name)
 │   │   │   ├── login/
 │   │   │   │   └── page.tsx # Thin Server Component, imports UI from features/auth
 │   │   │   └── register/
 │   │   │       └── page.tsx
-│   │   ├── (dashboard)/     # Route Group for authenticated user panel
+│   │   ├── dashboard/     # Route Group for authenticated user panel
 │   │   │   ├── dashboard/
 │   │   │   │   └── page.tsx
 │   │   │   └── layout.tsx   # Persistent layout for dashboard (Sidebar, Header)
